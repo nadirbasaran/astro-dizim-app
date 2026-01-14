@@ -40,8 +40,9 @@ with st.sidebar:
                 burc = st.selectbox(f"{gezegen} Burcu", burclar, key=f"{gezegen}_burc")
                 ev = st.number_input(f"{gezegen} Evi", 1, 12, 1, key=f"{gezegen}_ev")
             with col2:
-                derece = st.number_input(f"Derece (°)", 0, 29, 0, key=f"{gezegen}_deg")
-                dakika = st.number_input(f"Dakika (')", 0, 59, 0, key=f"{gezegen}_min")
+                # Düzeltme Burada Yapıldı: format="%02d" eklendi
+                derece = st.number_input(f"Derece (°)", 0, 29, 0, key=f"{gezegen}_deg", format="%d")
+                dakika = st.number_input(f"Dakika (')", 0, 59, 0, key=f"{gezegen}_min", format="%02d")
             
             is_retro = st.checkbox(f"{gezegen} Retro (R) mu?", key=f"{gezegen}_retro")
             
@@ -81,18 +82,17 @@ def analiz_et():
     kritik_gezegenler = []
     for g, veri in harita_verileri.items():
         if veri['derece'] == 29:
-            kritik_gezegenler.append(f"{g} (29°)")
-            oneriler.append(f"⚠️ **KRİTİK DERECE ({g}):** 29 derece 'Anaretik' derecedir. Aile sisteminde {g} ile temsil edilen konuda 'Tamamlanmamış Bir İş' veya 'Aciliyet' vardır.")
+            # Çıktı formatı düzeltildi: {veri['dakika']:02d}
+            kritik_gezegenler.append(f"{g} (29°{veri['dakika']:02d}')")
+            oneriler.append(f"⚠️ **KRİTİK DERECE ({g}):** 29°{veri['dakika']:02d}' derecesi 'Anaretik' derecedir. Aile sisteminde {g} ile temsil edilen konuda 'Tamamlanmamış Bir İş' veya 'Aciliyet' vardır.")
     
     if kritik_gezegenler:
         st.error(f"🚨 **SİSTEM ALARMI:** Şu gezegenler kriz derecesinde: {', '.join(kritik_gezegenler)}")
 
     # --- 2. SATÜRN ANALİZİ (Baba ve Karma) ---
     saturn = harita_verileri["Satürn"]
-    baba_sorun = False
     
     if saturn['ev'] in [4, 8, 12] or saturn['burc'] in ['Koç', 'Aslan'] or saturn['retro']:
-        baba_sorun = True
         G.add_edge("Atalar/Karma", "BABA", color='red')
         edge_colors.append('red')
         edge_styles.append('dashed')
@@ -126,7 +126,8 @@ def analiz_et():
         if ay['derece'] == 29: etiket = "KOPUK BAĞ"
         edge_labels[("ANNE", "DANIŞAN")] = etiket
         
-        oneriler.append(f"🌙 **Ay {ay['burc']}:** Anne ile duygusal bağda 'güven' sorunu. (Derece: {ay['derece']}°{ay['dakika']}')")
+        # Çıktı formatı düzeltildi
+        oneriler.append(f"🌙 **Ay {ay['burc']}:** Anne ile duygusal bağda 'güven' sorunu. (Konum: {ay['derece']}°{ay['dakika']:02d}')")
     else:
         G.add_edge("ANNE", "DANIŞAN", color='green')
         edge_colors.append('green')
@@ -161,7 +162,9 @@ def analiz_et():
 
     # --- 6. GÜNEŞ (Otorite/Baba) ---
     gunes = harita_verileri["Güneş"]
-    if gunes['ev'] in [8, 12] or (saturn['burc'] == gunes['burc']): # Kavuşum benzeri basit mantık
+    saturn = harita_verileri["Satürn"] # Yukarıdaki tanımı garantiye alalım
+    
+    if gunes['ev'] in [8, 12] or (saturn['burc'] == gunes['burc']): 
         G.add_edge("BABA", "DANIŞAN", color='red')
         edge_colors.append('red')
         edge_styles.append('solid')
