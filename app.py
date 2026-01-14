@@ -2,173 +2,199 @@ import streamlit as st
 import networkx as nx
 import matplotlib.pyplot as plt
 
-# Sayfa Ayarları
-st.set_page_config(page_title="Astro-Sistemik Dizim", page_icon="🔮")
+# --- SAYFA AYARLARI ---
+st.set_page_config(page_title="Astro-Sistemik Dizim PRO", page_icon="🌌", layout="wide")
 
-st.title("🔮 Astro-Sistemik Aile Dizimi Haritası")
-st.markdown("Astroloji haritanız ve Aile hikayeniz birleşiyor...")
+st.title("🌌 Astro-Sistemik Aile Dizimi: PRO ANALİZ")
+st.markdown("""
+Bu modül, doğum haritasındaki **tüm gezegenlerin** hassas konumlarına (Derece/Dakika) göre 
+derinlemesine sistemik analiz yapar. Özellikle **29° (Anaretik)** ve **Retro** gezegenler sistemde alarm verir.
+""")
 
-# --- KENAR ÇUBUĞU (VERİ GİRİŞİ) ---
+# --- YAN MENÜ: DETAYLI VERİ GİRİŞİ ---
 with st.sidebar:
-    st.header("1. Kişisel Bilgiler")
-    cinsiyet = st.selectbox("Cinsiyetiniz", ["Erkek", "Kadın"])
+    st.header("👤 Danışan Bilgileri")
+    cinsiyet = st.selectbox("Cinsiyet", ["Erkek", "Kadın"])
     
-    st.header("2. Astroloji Verileri")
-    
-    # SATÜRN
     st.markdown("---")
-    st.write("🪐 **Satürn (Baba/Karma)**")
-    saturn_ev = st.number_input("Satürn Kaçıncı Evde?", min_value=1, max_value=12, value=1)
-    saturn_burc = st.selectbox("Satürn Burcu", ["Koç", "Boğa", "İkizler", "Yengeç", "Aslan", "Başak", "Terazi", "Akrep", "Yay", "Oğlak", "Kova", "Balık"])
+    st.header("🪐 Gezegen Konumları")
+    st.info("Lütfen doğum haritasındaki değerleri giriniz.")
+
+    # Gezegen Listesi
+    gezegenler_listesi = [
+        "Güneş", "Ay", "Merkür", "Venüs", "Mars", 
+        "Jüpiter", "Satürn", "Uranüs", "Neptün", "Plüton", 
+        "Chiron", "Kuzey Ay Düğümü"
+    ]
     
-    # AY
-    st.markdown("---")
-    st.write("🌙 **Ay (Anne/Duygular)**")
-    ay_burc = st.selectbox("Ay (Moon) Burcu", ["Koç", "Boğa", "İkizler", "Yengeç", "Aslan", "Başak", "Terazi", "Akrep", "Yay", "Oğlak", "Kova", "Balık"])
+    burclar = ["Koç", "Boğa", "İkizler", "Yengeç", "Aslan", "Başak", "Terazi", "Akrep", "Yay", "Oğlak", "Kova", "Balık"]
     
-    # Açı Sorusu (İpucu Eklendi)
-    ay_aci = st.checkbox(
-        "Ay, Satürn veya Plüton'dan sert açı alıyor mu?",
-        help="📌 **İpucu:** Haritanızda Ay ile Satürn/Plüton arasında Kare (90°), Karşıt (180°) veya Kavuşum (0°) varsa işaretleyin. Bu, duygusal baskı göstergesidir."
-    )
-    
-    # 12. EV (Geliştirildi)
-    st.markdown("---")
-    st.write("👻 **12. Ev (Sırlar ve Dışlanmışlar)**")
-    gezegenler_12 = st.multiselect(
-        "12. Evinizde Hangi Gezegenler Var?",
-        ["Yok", "Güneş", "Ay", "Mars", "Venüs", "Satürn", "Plüton", "Uranüs", "Neptün"],
-        help="12. Evdeki gezegen, ailede 'kimin' veya 'neyin' saklandığını gösterir."
-    )
+    # Tüm verileri saklayacağımız sözlük
+    harita_verileri = {}
+
+    # Otomatik Form Oluşturucu (Her gezegen için)
+    for gezegen in gezegenler_listesi:
+        with st.expander(f"{gezegen} Bilgileri", expanded=False):
+            col1, col2 = st.columns(2)
+            with col1:
+                burc = st.selectbox(f"{gezegen} Burcu", burclar, key=f"{gezegen}_burc")
+                ev = st.number_input(f"{gezegen} Evi", 1, 12, 1, key=f"{gezegen}_ev")
+            with col2:
+                derece = st.number_input(f"Derece (°)", 0, 29, 0, key=f"{gezegen}_deg")
+                dakika = st.number_input(f"Dakika (')", 0, 59, 0, key=f"{gezegen}_min")
+            
+            is_retro = st.checkbox(f"{gezegen} Retro (R) mu?", key=f"{gezegen}_retro")
+            
+            # Veriyi kaydet
+            harita_verileri[gezegen] = {
+                "burc": burc, "ev": ev, 
+                "derece": derece, "dakika": dakika, 
+                "retro": is_retro
+            }
 
     st.markdown("---")
-    hesapla = st.button("Haritayı ve Reçeteyi Oluştur")
+    hesapla = st.button("🚀 PRO ANALİZİ BAŞLAT", type="primary")
 
-# --- HARİTA VE REÇETE FONKSİYONU ---
+# --- ANALİZ MOTORU ---
 def analiz_et():
-    # 1. GRAFİK KURULUMU
+    # Grafik Hazırlığı
     G = nx.DiGraph()
     coords = {
-        "Karma/Atalar": (0, 4), "BABA": (-1, 2), "ANNE": (1, 2),
-        "DANIŞAN": (0, 0), "Dışlanmış Kişi": (2, -1)
+        "Atalar/Karma": (0, 4), "BABA": (-1.5, 2), "ANNE": (1.5, 2),
+        "DANIŞAN": (0, 0), "Dışlanmış": (0, -2)
     }
     
-    # Düğümler
-    G.add_node("Karma/Atalar", shape='s', color='#A9A9A9', pos=coords["Karma/Atalar"])
+    # Temel Düğümler
+    G.add_node("Atalar/Karma", shape='s', color='#808080', pos=coords["Atalar/Karma"])
     G.add_node("BABA", shape='s', color='#87CEFA', pos=coords["BABA"])
     G.add_node("ANNE", shape='o', color='#FFB6C1', pos=coords["ANNE"])
     
     danisan_renk = '#87CEFA' if cinsiyet == "Erkek" else '#FFB6C1'
-    danisan_sekil = 's' if cinsiyet == "Erkek" else 'o'
-    G.add_node("DANIŞAN", shape=danisan_sekil, color=danisan_renk, pos=coords["DANIŞAN"])
+    G.add_node("DANIŞAN", shape='s' if cinsiyet == "Erkek" else 'o', color=danisan_renk, pos=coords["DANIŞAN"])
 
     edge_colors = []
     edge_styles = []
     edge_labels = {}
     oneriler = []
 
-    # --- MANTIK MOTORU ---
+    # --- 1. KRİTİK DERECE KONTROLÜ (29° ve 0°) ---
+    kritik_gezegenler = []
+    for g, veri in harita_verileri.items():
+        if veri['derece'] == 29:
+            kritik_gezegenler.append(f"{g} (29°)")
+            oneriler.append(f"⚠️ **KRİTİK DERECE ({g}):** 29 derece 'Anaretik' derecedir. Aile sisteminde {g} ile temsil edilen konuda 'Tamamlanmamış Bir İş' veya 'Aciliyet' vardır.")
+    
+    if kritik_gezegenler:
+        st.error(f"🚨 **SİSTEM ALARMI:** Şu gezegenler kriz derecesinde: {', '.join(kritik_gezegenler)}")
 
-    # 1. SATÜRN (Baba Karması)
-    if saturn_ev in [4, 8, 12] or saturn_burc in ['Oğlak', 'Akrep', 'Koç']:
-        G.add_edge("Karma/Atalar", "BABA", color='red')
+    # --- 2. SATÜRN ANALİZİ (Baba ve Karma) ---
+    saturn = harita_verileri["Satürn"]
+    baba_sorun = False
+    
+    if saturn['ev'] in [4, 8, 12] or saturn['burc'] in ['Koç', 'Aslan'] or saturn['retro']:
+        baba_sorun = True
+        G.add_edge("Atalar/Karma", "BABA", color='red')
         edge_colors.append('red')
         edge_styles.append('dashed')
         
-        sorun = "AĞIR YÜK"
-        if saturn_ev == 4: 
-            sorun = "KÖK TRAVMASI"
-            oneriler.append("🏠 **4. Ev (Kökler):** Evinizde atalarınız için bir köşe hazırlayın. 'Sizi görüyorum' cümlesini tekrarlayın.")
-        if saturn_ev == 8: 
-            sorun = "MİRAS/ÖLÜM"
-            oneriler.append("💸 **8. Ev (Bedel):** Ailede haksız kazanç veya miras sorunu varsa, dengelemek için sadaka verin.")
-        if saturn_ev == 12: 
-            sorun = "GİZLİ KAYIP"
-            oneriler.append("🕯️ **12. Ev (Kayıp):** Ailede unutulmuş biri var (hastaneye yatırılan, dışlanan). Onun için mum yakın.")
-            
-        edge_labels[("Karma/Atalar", "BABA")] = sorun
+        etiket = "AĞIR YÜK"
+        if saturn['retro']: etiket += " (RETRO)"
+        if saturn['derece'] == 29: etiket += " (KRİZ)"
+        
+        edge_labels[("Atalar/Karma", "BABA")] = etiket
+        
+        if saturn['retro']:
+            oneriler.append("🪐 **Satürn Retro:** Baba soyundan gelen travma tekrar ediyor. Dedelerde çözülmeyen bir sorun babaya, oradan size geçmiş.")
+        
+        if saturn['ev'] == 12:
+            oneriler.append("👻 **Satürn 12.Ev:** Baba tarafında gizli sırlar, hapishane veya akıl hastanesi geçmişi olabilir.")
+
     else:
-        G.add_edge("Karma/Atalar", "BABA", color='green')
+        G.add_edge("Atalar/Karma", "BABA", color='green')
         edge_colors.append('green')
         edge_styles.append('solid')
-        oneriler.append("🌳 **Satürn Desteği:** Babanızın veya dedenizin mesleğini/yeteneğini devam ettirmek size güç katar.")
 
-    # 2. AY (Anne Bağı)
-    if ay_burc in ['Oğlak', 'Akrep'] or ay_aci:
+    # --- 3. AY ANALİZİ (Anne ve Duygular) ---
+    ay = harita_verileri["Ay"]
+    
+    if ay['burc'] in ['Oğlak', 'Akrep'] or ay['ev'] in [8, 12]:
         G.add_edge("ANNE", "DANIŞAN", color='orange')
         edge_colors.append('orange')
         edge_styles.append('dotted')
-        edge_labels[("ANNE", "DANIŞAN")] = "ANNE YARASI"
-        oneriler.append("🤱 **Anne Bağı:** 'Senin kaderin sana ait anne, ben sadece senin çocuğunum' diyerek yükü iade edin.")
+        
+        etiket = "ANNE YARASI"
+        if ay['derece'] == 29: etiket = "KOPUK BAĞ"
+        edge_labels[("ANNE", "DANIŞAN")] = etiket
+        
+        oneriler.append(f"🌙 **Ay {ay['burc']}:** Anne ile duygusal bağda 'güven' sorunu. (Derece: {ay['derece']}°{ay['dakika']}')")
     else:
         G.add_edge("ANNE", "DANIŞAN", color='green')
         edge_colors.append('green')
         edge_styles.append('solid')
 
-    # 3. GÜNEŞ/SATÜRN (Otorite)
-    if saturn_ev in [1, 10]:
+    # --- 4. 12. EV DOLULUĞU (Gizli Şeyler) ---
+    ev_12_gezegenler = [g for g, v in harita_verileri.items() if v['ev'] == 12]
+    
+    if ev_12_gezegenler:
+        G.add_node("Dışlanmış", shape='o', color='#D3D3D3', pos=coords["Dışlanmış"])
+        G.add_edge("Atalar/Karma", "Dışlanmış", color='gray')
+        edge_colors.append('gray')
+        edge_styles.append('dotted')
+        edge_labels[("Atalar/Karma", "Dışlanmış")] = "GİZLENEN"
+        G.add_edge("DANIŞAN", "Dışlanmış", color='gray')
+        edge_colors.append('gray')
+        edge_styles.append('dashed')
+        
+        msg = f"👻 **12. Evde Gezegenler Var ({', '.join(ev_12_gezegenler)}):** Sistemde dışlanmış kişiler var."
+        st.warning(msg)
+        
+        if "Mars" in ev_12_gezegenler: oneriler.append("⚔️ **Mars 12.Ev:** Ailede saklanan bir şiddet/askerlik travması.")
+        if "Venüs" in ev_12_gezegenler: oneriler.append("💔 **Venüs 12.Ev:** Gizli aşklar veya yasak ilişkiler.")
+        if "Plüton" in ev_12_gezegenler: oneriler.append("💀 **Plüton 12.Ev:** Büyük sırlar, iflaslar veya ağır kayıplar.")
+
+    # --- 5. CHIRON (Yaralı Şifacı) ---
+    chiron = harita_verileri["Chiron"]
+    if chiron['ev'] == 1:
+        oneriler.append("🩹 **Chiron 1.Ev:** 'Ben buraya ait miyim?' sorusu. Doğum travması veya istenmeyen çocuk hissi.")
+    if chiron['ev'] == 4:
+        oneriler.append("🏠 **Chiron 4.Ev:** Aile ocağında derin bir yara. Evin içinde huzur bulamama.")
+
+    # --- 6. GÜNEŞ (Otorite/Baba) ---
+    gunes = harita_verileri["Güneş"]
+    if gunes['ev'] in [8, 12] or (saturn['burc'] == gunes['burc']): # Kavuşum benzeri basit mantık
         G.add_edge("BABA", "DANIŞAN", color='red')
         edge_colors.append('red')
         edge_styles.append('solid')
         edge_labels[("BABA", "DANIŞAN")] = "BASKI"
-        oneriler.append("👑 **Otorite:** Patronlarınızla yaşadığınız sorunlar babanızla ilgilidir. Babana içinden 'Sen büyüksün, ben küçüğüm' de.")
     else:
         G.add_edge("BABA", "DANIŞAN", color='green')
         edge_colors.append('green')
         edge_styles.append('solid')
 
-    # 4. 12. EV DETAYLI ANALİZİ (YENİ)
-    if gezegenler_12 and "Yok" not in gezegenler_12:
-        G.add_node("Dışlanmış Kişi", shape='o', color='#D3D3D3', pos=coords["Dışlanmış Kişi"])
-        G.add_edge("Karma/Atalar", "Dışlanmış Kişi", color='gray')
-        edge_colors.append('gray')
-        edge_styles.append('dotted')
-        edge_labels[("Karma/Atalar", "Dışlanmış Kişi")] = "GİZLENEN"
-        
-        G.add_edge("DANIŞAN", "Dışlanmış Kişi", color='gray')
-        edge_colors.append('gray')
-        edge_styles.append('dashed')
-        
-        # Gezegen Bazlı Yorumlar
-        st.info("👻 **12. Ev Analizi (Sırlar):**")
-        
-        if "Mars" in gezegenler_12:
-            oneriler.append("⚔️ **Mars 12.Ev:** Aile geçmişinde şiddet, savaş travması, cinayet veya fail/kurban hikayesi saklanıyor olabilir.")
-        if "Venüs" in gezegenler_12:
-            oneriler.append("💔 **Venüs 12.Ev:** Yasak aşk, kavuşulamayan sevgili veya evlilik dışı bir çocuk sistemde saklanıyor.")
-        if "Güneş" in gezegenler_12:
-            oneriler.append("🕵️‍♂️ **Güneş 12.Ev:** Baba veya baba soyundan önemli bir erkek (dede/amca) yok sayılmış, hapiste veya sürgünde olabilir.")
-        if "Ay" in gezegenler_12:
-            oneriler.append("🕵️‍♀️ **Ay 12.Ev:** Anne soyundan bir kadın veya yas tutulmamış bir bebek kaybı (kürtaj/düşük) bilinçaltını etkiliyor.")
-        if "Satürn" in gezegenler_12 or "Plüton" in gezegenler_12:
-            oneriler.append("⚖️ **Ağır Karma:** Ailede iflas, hapis veya büyük bir utanç sır olarak saklanıyor. Bu sırrı yargılamadan kabul edin.")
-
     # --- GÖRSELLEŞTİRME ---
-    st.subheader("📊 Sistemik Enerji Haritası")
-    fig, ax = plt.subplots(figsize=(10, 8))
-    pos = nx.get_node_attributes(G, 'pos')
-    colors = nx.get_node_attributes(G, 'color').values()
+    col_graph, col_text = st.columns([2, 1])
     
-    nx.draw_networkx_nodes(G, pos, node_size=3000, node_color=colors, edgecolors='black', ax=ax)
-    nx.draw_networkx_labels(G, pos, font_size=10, font_weight="bold", ax=ax)
-    nx.draw_networkx_edges(G, pos, edge_color=edge_colors, style=edge_styles, width=2, arrowsize=20, ax=ax)
-    nx.draw_networkx_edge_labels(G, pos, edge_labels=edge_labels, font_color='red', font_size=9, ax=ax)
-    ax.axis('off')
-    st.pyplot(fig)
+    with col_graph:
+        st.subheader("Sistemik Harita")
+        fig, ax = plt.subplots(figsize=(8, 6))
+        pos = nx.get_node_attributes(G, 'pos')
+        colors = nx.get_node_attributes(G, 'color').values()
+        
+        nx.draw_networkx_nodes(G, pos, node_size=2500, node_color=colors, edgecolors='black', ax=ax)
+        nx.draw_networkx_labels(G, pos, font_size=9, font_weight="bold", ax=ax)
+        nx.draw_networkx_edges(G, pos, edge_color=edge_colors, style=edge_styles, width=2, arrowsize=20, ax=ax)
+        nx.draw_networkx_edge_labels(G, pos, edge_labels=edge_labels, font_color='red', font_size=8, ax=ax)
+        ax.axis('off')
+        st.pyplot(fig)
 
-    # --- REÇETE BÖLÜMÜ ---
-    st.markdown("---")
-    st.subheader("💊 Şifa Reçetesi")
-    
-    for oneri in oneriler:
-        if "Uyarı" in oneri or "Dikkate" in oneri: 
-             st.warning(oneri)
-        elif "Güçlü" in oneri or "Desteği" in oneri:
-             st.success(oneri)
-        else:
-             st.info(oneri)
+    with col_text:
+        st.subheader("📋 Analiz Raporu")
+        for i, oneri in enumerate(oneriler, 1):
+            if "⚠️" in oneri: st.error(oneri)
+            elif "👻" in oneri: st.warning(oneri)
+            else: st.info(oneri)
 
 if hesapla:
     analiz_et()
 else:
-    st.write("👈 Sol menüden bilgileri girip butona basın.")
+    st.write("👈 Sol menüden tüm gezegenlerin bilgilerini girip 'ANALİZİ BAŞLAT' butonuna basın.")
