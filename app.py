@@ -64,7 +64,7 @@ def calculate_chart(name, d_date, d_time, lat, lon, utc_offset, transit_enabled,
         local_dt = datetime.combine(d_date, d_time)
         utc_dt = local_dt - timedelta(hours=utc_offset)
         
-        # --- HATA ÇÖZÜMÜ: TARİHİ STRING (YAZI) YAP ---
+        # --- KESİN ÇÖZÜM: TARİHİ STRING (YAZI) YAP ---
         # Bu satır "format string" hatasını kesin olarak engeller.
         date_str = utc_dt.strftime('%Y/%m/%d %H:%M:%S')
         
@@ -80,7 +80,7 @@ def calculate_chart(name, d_date, d_time, lat, lon, utc_offset, transit_enabled,
         
         # 3. Evler (Placidus)
         ramc = float(obs.sidereal_time())
-        ecl = ephem.Ecliptic(obs) # obs.date ve epoch'u kullanır
+        ecl = ephem.Ecliptic(obs) 
         eps = float(ecl.obliquity)
         lat_rad = math.radians(lat)
         
@@ -201,15 +201,6 @@ def draw_chart(vis_data):
         ax.text(rad, 1.15, sym, color='yellow', fontsize=10, ha='center')
     return fig
 
-# --- AI ---
-def get_ai(prompt):
-    if not api_key: return "API Key Yok"
-    try:
-        url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={api_key}"
-        resp = requests.post(url, headers={'Content-Type': 'application/json'}, data=json.dumps({"contents": [{"parts": [{"text": prompt}]}]}))
-        return resp.json()['candidates'][0]['content']['parts'][0]['text'] if resp.status_code==200 else "Hata"
-    except: return "Bağlantı Hatası"
-
 # --- PDF ---
 def make_pdf(name, text):
     try:
@@ -223,13 +214,24 @@ def make_pdf(name, text):
         return pdf.output(dest='S').encode('latin-1', 'ignore')
     except: return None
 
+# --- AI ---
+def get_ai(prompt):
+    if not api_key: return "API Key Yok"
+    try:
+        url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={api_key}"
+        resp = requests.post(url, headers={'Content-Type': 'application/json'}, data=json.dumps({"contents": [{"parts": [{"text": prompt}]}]}))
+        return resp.json()['candidates'][0]['content']['parts'][0]['text'] if resp.status_code==200 else "Hata"
+    except: return "Bağlantı Hatası"
+
 # --- ARAYÜZ ---
 with st.sidebar:
     st.header("Giriş")
     name = st.text_input("İsim", "Misafir")
     d_date = st.date_input("Tarih", value=datetime(1980, 11, 26))
+    
     # DAKİKA AYARI (STEP=60)
     d_time = st.time_input("Saat", value=datetime.strptime("16:00", "%H:%M"), step=60)
+    
     utc_offset = st.number_input("GMT", 3)
     city = st.text_input("Şehir", "İstanbul")
     tr_mode = st.checkbox("Transit Modu")
