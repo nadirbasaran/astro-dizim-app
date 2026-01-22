@@ -65,14 +65,13 @@ def calculate_chart(name, d_date, d_time, lat, lon, utc_offset, transit_enabled,
         utc_dt = local_dt - timedelta(hours=utc_offset)
         
         # --- KESİN ÇÖZÜM: TARİHİ STRING (YAZI) YAP ---
-        # Bu satır "format string" hatasını kesin olarak engeller.
         date_str = utc_dt.strftime('%Y/%m/%d %H:%M:%S')
         
         # 2. Gözlemci
         obs = ephem.Observer()
         obs.lat = str(lat)
         obs.lon = str(lon)
-        obs.date = date_str # String olarak veriyoruz
+        obs.date = date_str # String olarak veriyoruz (Hata Vermez)
         
         # --- GÜNEŞ EVİ AYARI ---
         # 2000 yılına değil, doğum anına (string olarak) sabitliyoruz.
@@ -125,13 +124,13 @@ def calculate_chart(name, d_date, d_time, lat, lon, utc_offset, transit_enabled,
             sign_idx = int(deg/30)%12
             dms = dec_to_dms(deg % 30)
             
-            # Ev tespiti (Basit yöntem, hata vermez)
+            # Ev tespiti
             h = get_house(deg, cusps)
             
             info_html += f"<div class='metric-box'><b>{n}</b>: {ZODIAC[sign_idx]} {dms} ({h}. Ev)</div>"
             ai_data += f"{n}: {ZODIAC[sign_idx]} {dms} ({h}. Ev)\n"
             
-            # 4. PARÇA EKLENDİ (SEMBOL)
+            # 4. PARÇA EKLENDİ (SEMBOL) - Hata burada çözülüyor
             visual_data.append((n, ZODIAC[sign_idx], deg, PLANET_SYMBOLS.get(n, "")))
 
         # Açılar
@@ -229,7 +228,7 @@ with st.sidebar:
     name = st.text_input("İsim", "Misafir")
     d_date = st.date_input("Tarih", value=datetime(1980, 11, 26))
     
-    # DAKİKA AYARI (STEP=60)
+    # DAKİKA AYARI (step=60)
     d_time = st.time_input("Saat", value=datetime.strptime("16:00", "%H:%M"), step=60)
     
     utc_offset = st.number_input("GMT", 3)
