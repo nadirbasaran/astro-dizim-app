@@ -1,6 +1,6 @@
 streamlit
-ephem
-fpdf
-matplotlib
 requests
-numpy
+ephem
+pytz
+matplotlib
+fpdf
